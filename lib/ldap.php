@@ -2,22 +2,132 @@
 
 require_once('constants.php');
 
+
+/**
+ * This function utilizes createObject to create a user object in AD.
+ * This function currently assumes the users email will be set to first.lastname@domain.com
+ * @param resource $ldap_conn LDAP connection to pass down to createObject
+ * @param string $baseOU The base OU you want to drop the user object in.
+ * @param string $username The users sAMAccountName
+ * @param string $firstName The users first name
+ * @param string $lastName The users last name
+ * @param array $groups An array containing a list of group DNs you want them to be a member of.
+ * @return int Return 0 if everything went according to plan, otherwise return the error code.
+ */
+function createUser($ldap_conn, $baseOU, $username, $firstName, $lastName, $groups)
+{
+
+
+    $fullName = $firstName . " " . $lastName;
+    $userDN = "CN=" . $fullName . "," . $baseOU;
+
+    $properties = array();
+
+    $properties['cn'] = $fullName;
+    $properties['givenName'] = $firstName;
+    $properties['sn'] = $lastName;
+    $properties['sAMAccountName'] = $username;
+    $properties['UserPrincipalName'] = $username . "@" . APP_ROOT_DOMAIN;
+    $properties['displayName'] = $fullName;
+    $properties['name'] = $fullName;
+    $properties['objectclass'][0] = 'top';
+    $properties['objectclass'][1] = 'person';
+    $properties['objectclass'][2] = 'organizationalPerson';
+    $properties['objectclass'][3] = 'user';
+    $properties['mail'] = $firstName . "." . $lastName . "@" . APP_ROOT_DOMAIN;
+
+
+    print_r($properties);
+
+    print("Dist: " . $userDN);
+
+    $createResult = createObject($ldap_conn, $userDN, $properties);
+
+    //now lets see if we need to add them to any groups
+    if (is_array($groups) && !empty($groups)) {
+        addUserToManyGroups($ldap_conn, $userDN, $groups);
+    } else {
+        addUserToGroup($ldap_conn, $userDN, $groups);
+    }
+
+    if ($createResult) {
+        return true;
+    }
+
+    return false;
+
+}
+
 /**
  * Used to create a DN in active directory, can be anything, depends on the props passed in.
  * @param resource $ldap_conn The LDAP connection used to connect to the server
  * @param string $distinguishedName The DN we want to create
- * @param array $props The Array of properties to be applied (also sets what the object is, e.g. User, Group etc)
+ * @param array $properties The Array of properties to be applied (also sets what the object is, e.g. User, Group etc)
  * @return int Return 0 if everything went according to plan, otherwise return the error code.
  */
-function createObject($ldap_conn, $distinguishedName, $props)
+function createObject($ldap_conn, $distinguishedName, $properties)
 {
-    ldap_add($ldap_conn, $distinguishedName, $props);
+    bind_to_server($ldap_conn, APP_LDAP_USER, APP_LDAP_PASS);
+
+    ldap_add($ldap_conn, $distinguishedName, $properties);
     //print_r($props);
+
     if (ldap_error($ldap_conn) == "Success") {
         return 0;
     } else {
         return ldap_errno($ldap_conn);
     }
+}
+
+/**
+ * Used to modify properties of an AD DN.
+ * @param resource $ldap_conn The LDAP connection resource to connect to AD
+ * @param string $distinguishedName The DN of the object we want to modify
+ * @param array $properties The array of properties we want to set/update
+ * @return int|string Return 0 if everything went according to plan, otherwise return the error code.
+ */
+function updateObject($ldap_conn, $distinguishedName, $properties)
+{
+    bind_to_server($ldap_conn, APP_LDAP_USER, APP_LDAP_PASS);
+
+    ldap_modify($ldap_conn, $distinguishedName, $properties);
+    //print_r($props);
+
+    if (ldap_error($ldap_conn) == "Success") {
+        return 0;
+    } else {
+        return ldap_error($ldap_conn);
+    }
+}
+
+/**
+ * This function calls on addUserToGroup to add someone to a group in AD since you can't modify memberOf, you have to
+ * add them as a "member" to a group object.
+ * @param resource $ldap_conn The LDAP Connection resource to connect to AD
+ * @param String $userDistinguishedName The users DN who we want to add to thr group
+ * @param array $groupList The array containing the group DNs we want them to become a member of.
+ */
+function addUserToManyGroups($ldap_conn, $userDistinguishedName, $groupList)
+{
+    foreach ($groupList as $group) {
+        addUserToGroup($ldap_conn, $userDistinguishedName, $group);
+    }
+}
+
+/**
+ * This function adds a user to a group in AD
+ * @param resource $ldap_conn The LDAP Connection resource to connect to AD
+ * @param string $userDistinguishedName the DN of the user we want to add to the group.
+ * @param string $groupDistinguishedName The DN of the group we want to add the user to.
+ * @return bool Return true if we succeeded and false if we didn't
+ */
+function addUserToGroup($ldap_conn, $userDistinguishedName, $groupDistinguishedName)
+{
+    bind_to_server($ldap_conn, APP_LDAP_USER, APP_LDAP_PASS);
+    $group_members['member'] = $userDistinguishedName;
+    return ldap_mod_add($ldap_conn, $groupDistinguishedName, $group_members);
+
+
 }
 
 /**
