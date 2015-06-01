@@ -1,4 +1,5 @@
 <?php
+
 /*
  * Copyright (c) 2015 srrobinson
  *
@@ -21,20 +22,23 @@
  * THE SOFTWARE.
  *
 */
-require_once('../includes/lib/ldap.php');
-require_once('../includes/lib/functions.php');
 
-include('../includes/html/header.php');
+#Database constants
+const DB_USER = "root";
+const DB_PASS = "";
+const DB_SERVER = "127.0.0.1";
+const DB_PORT = "3306";
+const DB_TABLE_PREFIX = "";
+const DB_NAME = "account-man";
+
+#LDAP Constants - ADJUST THESE FOR YOUR ENVIRONMENT
+const APP_ROOT_DOMAIN = "server.local";
+const APP_LDAP_SERVER = "127.0.0.1";
+const APP_LDAP_PORT = "389";
+const APP_LDAP_USER = "Administrator";
+const APP_LDAP_PASS = "Start123";
 
 
-//if we don't at least have these, we need to print the form
+#String constants
+const PAGE_TITLE = "EMUC";
 
-if (does_post_var_exist("firstName") && does_post_var_exist("firstName")) {
-
-
-} else {
-    include('../includes/html/input-form.php');
-}
-
-
-include('../includes/html/footer.php');

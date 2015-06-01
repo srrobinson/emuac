@@ -1,6 +1,5 @@
-<?php
 /*
- * Copyright (c) 2015 srrobinson
+ * Copyright (c) 2015 Sean Robinson and some
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -21,20 +20,36 @@
  * THE SOFTWARE.
  *
 */
-require_once('../includes/lib/ldap.php');
-require_once('../includes/lib/functions.php');
 
-include('../includes/html/header.php');
-
-
-//if we don't at least have these, we need to print the form
-
-if (does_post_var_exist("firstName") && does_post_var_exist("firstName")) {
-
-
-} else {
-    include('../includes/html/input-form.php');
+.input_field_small {
+    width: 50px;
+    box-sizing: border-box;
 }
 
+.input_field_medium {
+    width: 70px;
+    box-sizing: border-box;
+}
 
-include('../includes/html/footer.php');
+.input_field_large {
+    width: 200px;
+    box-sizing: border-box;
+}
+
+.input_field_xlarge {
+    width: 320px;
+    box-sizing: border-box;
+}
+
+.hidden {
+    display: none;
+}
+
+.antispam {
+    display: none;
+}
+
+.small_link {
+    font-size: .8em;
+
+}
