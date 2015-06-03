@@ -33,6 +33,7 @@ const DB_NAME = "account-man";
 
 #LDAP Constants - ADJUST THESE FOR YOUR ENVIRONMENT
 const APP_ROOT_DOMAIN = "server.local";
+const APP_LDAP_ROOT = "DC=server,DC=local";
 const APP_LDAP_SERVER = "127.0.0.1";
 const APP_LDAP_PORT = "389";
 const APP_LDAP_USER = "Administrator";
@@ -40,5 +41,5 @@ const APP_LDAP_PASS = "Start123";
 
 
 #String constants
-const PAGE_TITLE = "EMUC";
+const PAGE_TITLE = "PAC";
 

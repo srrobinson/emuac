@@ -33,6 +33,14 @@ $(document).ready(function () {
 
     });
 
+    //un-hide email field if the check box
+    $('#enable_email').change(function () {
+        $('#email_text_label').toggle();
+        $('#email_text').toggle().val('');
+
+    });
+
+
 
     $(".go_back_link").on('click', function (e) {
         e.preventDefault();

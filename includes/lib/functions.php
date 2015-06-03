@@ -122,3 +122,29 @@ function validate_email($email)
 {
     return filter_var($email, FILTER_VALIDATE_EMAIL) ? true : false;
 }
+
+/**
+ * This function takes basic email information in and a bodyTemplate and templateData.
+ * The body template contains "template fields" such as {first_name} which is matched as a key within templateData
+ * and replaced with the value associated to that key using a preg_replace call,w e loop through each value in
+ * templateData and replace them with their matching values. This allows the user to customize the email when sending it
+ * to many users and have it dynamically filled in per user.
+ * @param string $toAddress The address where we plan to send the email
+ * @param string $fromAddress The address we are sending it from (probably noreply)
+ * @param string $subject The subject of the email we want to send.
+ * @param string $bodyTemplate The generic email data with templated values to be replaced
+ * @param array $templateData The associative array containing the template values and their associated replacements.
+ */
+function send_email($toAddress, $fromAddress, $subject, $bodyTemplate, $templateData)
+{
+
+    //update any "templated" values we fed in like {firstname} -> John, etc
+    $updatedBody = $bodyTemplate;
+    foreach ($templateData as $key => $value) {
+        $updatedBody = preg_replace($key, $value, $updatedBody);
+    }
+
+    print("Body is now: \n" . $updatedBody);
+    //send email here
+
+}

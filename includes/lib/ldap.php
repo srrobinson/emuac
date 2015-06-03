@@ -59,12 +59,11 @@ function createUser($ldap_conn, $baseOU, $username, $firstName, $lastName, $grou
     $properties['mail'] = $firstName . "." . $lastName . "@" . APP_ROOT_DOMAIN;
 
 
-    print_r($properties);
 
-    print("Dist: " . $userDN);
 
     $createResult = createObject($ldap_conn, $userDN, $properties);
 
+    $groups = getGroupDNsFromSAM($ldap_conn, APP_LDAP_ROOT, $groups);
     //now lets see if we need to add them to any groups
     if (is_array($groups) && !empty($groups)) {
         addUserToManyGroups($ldap_conn, $userDN, $groups);
@@ -149,6 +148,40 @@ function addUserToGroup($ldap_conn, $userDistinguishedName, $groupDistinguishedN
     $group_members['member'] = $userDistinguishedName;
     return ldap_mod_add($ldap_conn, $groupDistinguishedName, $group_members);
 
+
+}
+
+/**
+ * This function takes in an array of sAMAccountNames for groups and converts it to an array of their DNs.
+ * If any of them can't be matched, we just ignore it.
+ * @param resource $ldap_conn The LDAP Connection resource to connect to AD.
+ * @param string $baseOU The string representing the base for the search path.
+ * @param array $groupList The array containing the sAMAccountNames for the groups.
+ * @return array $groupDNList An array containing Strings representing the DNs for each sAMAccountName
+ */
+function getGroupDNsFromSAM($ldap_conn, $baseOU, $groupList)
+{
+
+    //needed in case user searches from the root of the domain
+    ldap_set_option($ldap_conn, LDAP_OPT_REFERRALS, 0);
+    ldap_set_option($ldap_conn, LDAP_OPT_PROTOCOL_VERSION, 3);
+    $groupDNList = array();
+    //grab only the DN
+    $attributes = array("dn");
+
+    if (bind_to_server($ldap_conn, APP_LDAP_USER, APP_LDAP_PASS)) {
+        foreach ($groupList as $group) {
+            $filter = "(&(objectCategory=Group)(sAMAccountName=" . $group . "))";
+            $result = ldap_search($ldap_conn, $baseOU, $filter, $attributes);
+            $entries = ldap_get_entries($ldap_conn, $result);
+
+            if ($entries['count'] > 0) {
+                array_push($groupDNList, $entries[0]['dn']);
+            }
+        }
+    }
+
+    return $groupDNList;
 
 }
 
