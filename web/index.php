@@ -48,7 +48,7 @@ if (does_post_var_exist("first_name") && does_post_var_exist("last_name")) {
     $emailText = null;
     if (does_post_var_exist("enable_email")) {
         $sendEmail = true;
-        $emailText = is_field_blank("email_text") ? null : get_post_var("email_text");
+        $emailText = is_field_blank("email_text") ? null : $_POST['email_text'];
     }
 
     //if any of these fields are null we need to give an error
@@ -66,22 +66,39 @@ if (does_post_var_exist("first_name") && does_post_var_exist("last_name")) {
         $groupList = array_map('trim', explode(',', $groupList));
 
         $ldap_connection = getLdapConnection();
-        foreach ($firstNames as $firstNameKey => $firstNameValue) {
+        foreach ($firstNames as $userKey => $firstNameValue) {
             $password = null;
             if ($rand_pass) {
                 $password = generatePassword(RAND_PASSWORD_LENGTH, RAND_PASSWORD_SPECIAL_CHARS);
             } else {
                 $password = $set_pass;
             }
-            $userDN = createUser($ldap_connection, $baseOU, $usernames[$firstNameKey], $firstNameValue, $lastNames[$firstNameKey], $password, $groupList);
+            $userDN = createUser($ldap_connection, $baseOU, $usernames[$userKey], $firstNameValue, $lastNames[$userKey], $password, $groupList);
 
-            print "Created user: " . $usernames[$firstNameKey] . " with password of: " . $password . "<br />";
+            if ($userDN) {
+                print "<br />Created user: " . $usernames[$userKey] . " with password of: " . $password . "<br /><br />";
+
+                if ($sendEmail) {
+                    $templateData = array("{firstname}" => $firstNameValue, "{lastname}" => $lastNames[$userKey], "{username}" => $usernames[$userKey], "{password}" => $password);
+                    $mailer = prepareEmail(getEmail($firstNameValue, $lastNames[$userKey], APP_ROOT_DOMAIN), SMTP_FROM, SMTP_SUBJECT, $emailText, $templateData);
+
+                    //don't overload the mail server
+                    sleep(1);
+
+                    if ($mailer->send()) {
+                        print "Email sent correctly!";
+                    } else {
+                        print "Email failed to send, error was: " . $mailer->ErrorInfo;
+                    }
+                }
+            } else {
+                print "<br />User: " . $usernames[$userKey] . " was not created successfully <br />";
+            }
+
         }
-
         print "<h3>Please record this password information, it won't be retrievable once you leave this page!</h3>";
 
         print "<a href=\"index.php\">Return Home</a>";
-
 
     }
 

@@ -57,32 +57,25 @@ function createUser($ldap_conn, $baseOU, $username, $firstName, $lastName, $pass
     $properties['objectclass'][1] = 'person';
     $properties['objectclass'][2] = 'organizationalPerson';
     $properties['objectclass'][3] = 'user';
-    $properties['mail'] = $firstName . "." . $lastName . "@" . APP_ROOT_DOMAIN;
+    $properties['mail'] = getEmail($firstName, $lastName, APP_ROOT_DOMAIN);
     $properties['unicodePwd'] = getUnicodePwd($password);
     $properties['userAccountControl'] = 512;
 
 
-
-
     $createResult = createObject($ldap_conn, $userDN, $properties);
-    $setUAC = array();
-    /*$setUAC['userAccountControl'] = 544;
-    updateObject($ldap_conn,$userDN,$setUAC);*/
 
     $groups = getGroupDNsFromSAM($ldap_conn, APP_LDAP_ROOT, $groups);
     //now lets see if we need to add them to any groups
 
-    if (is_array($groups) && !empty($groups)) {
-        addUserToManyGroups($ldap_conn, $userDN, $groups);
-    } else {
-        addUserToGroup($ldap_conn, $userDN, $groups);
-    }
-
     if ($createResult) {
-        return $userDN;
+        if (is_array($groups) && !empty($groups)) {
+            addUserToManyGroups($ldap_conn, $userDN, $groups);
+        } else {
+            addUserToGroup($ldap_conn, $userDN, $groups);
+        }
     }
 
-    return false;
+    return $userDN;
 
 }
 
@@ -95,10 +88,8 @@ function createUser($ldap_conn, $baseOU, $username, $firstName, $lastName, $pass
 function setPassword($ldap_conn, $userDN, $password)
 {
     $pass = array();
-    $pass['userAccountControl'] = 512;
     $pass['unicodePwd'] = mb_convert_encoding("\"" . $password . "\"", 'utf-16le');
 
-    print "about to password";
     updatePassword($ldap_conn, $userDN, $pass);
 
 }
@@ -115,12 +106,12 @@ function createObject($ldap_conn, $distinguishedName, $properties)
     bind_to_server($ldap_conn, APP_LDAP_USER, APP_LDAP_PASS);
 
     ldap_add($ldap_conn, $distinguishedName, $properties);
-    //print_r($props);
 
     if (ldap_error($ldap_conn) == "Success") {
-        return 0;
+
+        return true;
     } else {
-        return ldap_errno($ldap_conn);
+        return false;
     }
 }
 
@@ -136,13 +127,12 @@ function updateObject($ldap_conn, $distinguishedName, $properties)
     bind_to_server($ldap_conn, APP_LDAP_USER, APP_LDAP_PASS);
 
     ldap_modify($ldap_conn, $distinguishedName, $properties);
-    print_r($properties);
 
 
     if (ldap_error($ldap_conn) == "Success") {
-        return 0;
+        return true;
     } else {
-        return ldap_error($ldap_conn);
+        return false;
     }
 }
 
@@ -160,9 +150,9 @@ function updatePassword($ldap_conn, $distinguishedName, $properties)
     ldap_mod_replace($ldap_conn, $distinguishedName, $properties);
 
     if (ldap_error($ldap_conn) == "Success") {
-        return 0;
+        return true;
     } else {
-        return ldap_error($ldap_conn);
+        return false;
     }
 }
 
@@ -172,12 +162,15 @@ function updatePassword($ldap_conn, $distinguishedName, $properties)
  * @param resource $ldap_conn The LDAP Connection resource to connect to AD
  * @param String $userDistinguishedName The users DN who we want to add to thr group
  * @param array $groupList The array containing the group DNs we want them to become a member of.
+ * @return bool Return true if all of them succeeded and false if not all succeeded
+ *
  */
 function addUserToManyGroups($ldap_conn, $userDistinguishedName, $groupList)
 {
     foreach ($groupList as $group) {
         addUserToGroup($ldap_conn, $userDistinguishedName, $group);
     }
+
 }
 
 /**

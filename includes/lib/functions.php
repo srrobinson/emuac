@@ -1,5 +1,6 @@
 <?php
 require_once('defuse/PasswordGenerator.php');
+require_once('phpmailer/PHPMailerAutoload.php');
 /*
  * Copyright (c) 2015 srrobinson
  *
@@ -36,28 +37,40 @@ function does_post_var_exist($varname)
 /***
  * Return a sanitized version of a post variable.
  * @param mixed $varname name of the post variable.
+ * @param bool $noWhiteSpace Boolean whether we want to strip out all white space or not.
+ * (might not want to do that if its coming from textarea)
  * @return string the value of that post variable.
  */
 
-function get_post_var($varname)
+function get_post_var($varname, $noWhiteSpace = true)
 {
-    return sanitize_data($_POST[$varname]);
+    return sanitize_data($_POST[$varname], $noWhiteSpace);
 }
 
 /***
  * Perform some basic input sanitization (whitespace, html and php), not DB safe.
- * @param mixed $input_data data to be sanitized
+ * @param mixed $inputData data to be sanitized
+ * @param bool $noWhiteSpace Set to true if you want all newlines/extra white space removed
  * @return string return the sanitized string input or sanitized array
  */
-function sanitize_data($input_data)
+function sanitize_data($inputData, $noWhiteSpace = true)
 {
-    if (is_array($input_data)) {
-        foreach ($input_data as $key => $data) {
-            $input_data[$key] = trim(stripslashes(strip_tags($data)));
+    if (is_array($inputData)) {
+        foreach ($inputData as $key => $data) {
+            if ($noWhiteSpace) {
+                $inputData[$key] = trim(stripslashes(strip_tags($data)));
+            } else {
+                $inputData[$key] = stripslashes(strip_tags($data));
+            }
         }
-        return $input_data;
+        return $inputData;
     } else {
-        return trim(stripslashes(strip_tags($input_data)));
+        if ($noWhiteSpace) {
+
+            return trim(stripslashes(strip_tags($inputData)));
+        } else {
+            return stripslashes(strip_tags($inputData));
+        }
     }
 }
 
@@ -68,15 +81,15 @@ function sanitize_data($input_data)
  */
 function is_var_numeric($varname)
 {
-    $input_data = $_POST[$varname];
-    if (is_array($input_data)) {
-        foreach ($input_data as $key => $data) {
+    $inputData = $_POST[$varname];
+    if (is_array($inputData)) {
+        foreach ($inputData as $key => $data) {
             if (!is_numeric($data)) {
                 return false;
             }
         }
     } else {
-        return is_numeric($input_data);
+        return is_numeric($inputData);
     }
     return true;
 }
@@ -128,39 +141,65 @@ function validate_email($email)
 }
 
 /**
- * This function takes basic email information in and a bodyTemplate and templateData.
- * The body template contains "template fields" such as {first_name} which is matched as a key within templateData
- * and replaced with the value associated to that key using a preg_replace call,w e loop through each value in
- * templateData and replace them with their matching values. This allows the user to customize the email when sending it
- * to many users and have it dynamically filled in per user.
+ * Simple wrapper around strtr to replace "template" values with actual values based on data in an associative
+ * array (formValues).
+ * @param string $originalText The original templated text
+ * @param array $formValues The associative array containing the values to be replaced in originalText
+ * @return string The updated text with the newly replaced values.
+ */
+function fill_in_template($originalText, $formValues)
+{
+    return strtr($originalText, $formValues);
+}
+
+/**
+ * This function takes basic email information in and a originalBody and templateData.
+ * The body template contains "template fields" such as {first_name} which is matched as a key within formValues
+ * and replaced with the value associated to that key using a strtr call to replace everything.
+ * Example expected format is ( {firstname} => "John") for the formValues array
+ * This allows the user to customize the email when sending it to many users and have it dynamically filled in per user.
  * @param string $toAddress The address where we plan to send the email
  * @param string $fromAddress The address we are sending it from (probably noreply)
  * @param string $subject The subject of the email we want to send.
- * @param string $bodyTemplate The generic email data with templated values to be replaced
- * @param array $templateData The associative array containing the template values and their associated replacements.
+ * @param string $originalBody The generic email data with templated values to be replaced
+ * @param array $formValues The associative array containing the template values and their associated replacements.
+ *
+ * @return resource the PHPMailer object so we can send/parse errors if needed.
  */
-function send_email($toAddress, $fromAddress, $subject, $bodyTemplate, $templateData)
+function prepareEmail($toAddress, $fromAddress, $subject, $originalBody, $formValues)
 {
 
-    //update any "templated" values we fed in like {firstname} -> John, etc
-    $updatedBody = $bodyTemplate;
-    foreach ($templateData as $key => $value) {
-        $updatedBody = preg_replace($key, $value, $updatedBody);
-    }
+    $updatedBody = fill_in_template($originalBody, $formValues);
 
-    print("Body is now: \n" . $updatedBody);
-    //send email here
+    $mail = new PHPMailer();
+    $mail->isSMTP();
+    /*$mail->SMTPDebug = 3;
+    $mail->Debugoutput = 'html';*/
+    $mail->Host = SMTP_SERVER;
+    $mail->SMTPAuth = SMTP_AUTH;
+    $mail->Username = SMTP_USER;
+    $mail->Password = SMTP_PASS;
+    if (SMTP_ENC) {
+        $mail->SMTPSecure = SMTP_ENC_TYPE;
+    }
+    $mail->Port = SMTP_PORT;
+
+    $mail->From = $fromAddress;
+    $mail->addAddress($toAddress);
+    $mail->Subject = $subject;
+    $mail->Body = $updatedBody;
+    return $mail;
 
 }
 
 /**
  * This functions job is to take a string, generally a password and return it in a unicode format which Active Directory will accept
- * @param string $unformatted_password The original string to transform
+ * @param string $passwordInput The original string to transform
  * @return string The formatted password which active directory will accept
  */
-function getUnicodePwd($unformatted_password)
+function getUnicodePwd($passwordInput)
 {
-    return mb_convert_encoding("\"" . $unformatted_password . "\"", 'utf-16le');
+    return mb_convert_encoding("\"" . $passwordInput . "\"", 'utf-16le');
 }
 
 /**
@@ -183,5 +222,17 @@ function generatePassword($length, $specialChars)
         return false;
     }
 
+}
 
+/**
+ * Basic function to help tool conform to DRY principle. Tool assumes email is firstname.lastname@domain
+ * Will have to figure out something more dynamic later.
+ * @param string $firstName The first part of their email address.
+ * @param string $lastName The second part of their email address.
+ * @param string $domainName The domain for their email address
+ * @return string Properly concatenated email address
+ */
+function getEmail($firstName, $lastName, $domainName)
+{
+    return $firstName . "." . $lastName . "@" . $domainName;
 }
