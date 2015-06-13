@@ -1,5 +1,5 @@
 <?php
-
+require_once('defuse/PasswordGenerator.php');
 /*
  * Copyright (c) 2015 srrobinson
  *
@@ -88,16 +88,20 @@ function is_var_numeric($varname)
  */
 function is_field_blank($varname)
 {
-
-    $input_data = $_POST[$varname];
-    if (is_array($input_data)) {
-        foreach ($input_data as $key => $data) {
-            if (empty($data)) {
-                return true;
-            }
-        }
+    //catch things like unchecked checkboxes
+    if (!isset($_POST[$varname])) {
+        return true;
     } else {
-        return empty($input_data);
+        $input_data = $_POST[$varname];
+        if (is_array($input_data)) {
+            foreach ($input_data as $key => $data) {
+                if (empty($data)) {
+                    return true;
+                }
+            }
+        } else {
+            return empty($input_data);
+        }
     }
 }
 
@@ -146,5 +150,38 @@ function send_email($toAddress, $fromAddress, $subject, $bodyTemplate, $template
 
     print("Body is now: \n" . $updatedBody);
     //send email here
+
+}
+
+/**
+ * This functions job is to take a string, generally a password and return it in a unicode format which Active Directory will accept
+ * @param string $unformatted_password The original string to transform
+ * @return string The formatted password which active directory will accept
+ */
+function getUnicodePwd($unformatted_password)
+{
+    return mb_convert_encoding("\"" . $unformatted_password . "\"", 'utf-16le');
+}
+
+/**
+ * This function uses the PasswordGenerator library written by Taylor Hornby to attempt to generate mostly
+ * secure passwords using the mcrypt library in PHP.
+ * @param int $length The length we want the password
+ * @param bool $specialChars Whether we want to include special characters
+ * @return bool|string Return the password string if we got all the right info, if not return false.
+ */
+function generatePassword($length, $specialChars)
+{
+    if ($length && is_numeric($length)) {
+        if ($specialChars) {
+            return PasswordGenerator::getASCIIPassword($length);
+        } else {
+            return PasswordGenerator::getAlphaNumericPassword($length);
+
+        }
+    } else {
+        return false;
+    }
+
 
 }

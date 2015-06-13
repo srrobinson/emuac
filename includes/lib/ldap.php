@@ -33,10 +33,11 @@ require_once('constants.php');
  * @param string $username The users sAMAccountName
  * @param string $firstName The users first name
  * @param string $lastName The users last name
+ * @param string $password The password we want to set for the user (secure LDAP required)
  * @param array $groups An array containing a list of group DNs you want them to be a member of.
  * @return int Return 0 if everything went according to plan, otherwise return the error code.
  */
-function createUser($ldap_conn, $baseOU, $username, $firstName, $lastName, $groups)
+function createUser($ldap_conn, $baseOU, $username, $firstName, $lastName, $password, $groups)
 {
 
 
@@ -57,14 +58,20 @@ function createUser($ldap_conn, $baseOU, $username, $firstName, $lastName, $grou
     $properties['objectclass'][2] = 'organizationalPerson';
     $properties['objectclass'][3] = 'user';
     $properties['mail'] = $firstName . "." . $lastName . "@" . APP_ROOT_DOMAIN;
+    $properties['unicodePwd'] = getUnicodePwd($password);
+    $properties['userAccountControl'] = 512;
 
 
 
 
     $createResult = createObject($ldap_conn, $userDN, $properties);
+    $setUAC = array();
+    /*$setUAC['userAccountControl'] = 544;
+    updateObject($ldap_conn,$userDN,$setUAC);*/
 
     $groups = getGroupDNsFromSAM($ldap_conn, APP_LDAP_ROOT, $groups);
     //now lets see if we need to add them to any groups
+
     if (is_array($groups) && !empty($groups)) {
         addUserToManyGroups($ldap_conn, $userDN, $groups);
     } else {
@@ -72,10 +79,27 @@ function createUser($ldap_conn, $baseOU, $username, $firstName, $lastName, $grou
     }
 
     if ($createResult) {
-        return true;
+        return $userDN;
     }
 
     return false;
+
+}
+
+/**
+ * Function uses the updateObject method to set a password on a user account
+ * @param resource $ldap_conn The LDAP connection used to connect to the server
+ * @param string $userDN The Distinguished name of the user account we are changing the password on
+ * @param string $password The password encoded for AD that we are setting
+ */
+function setPassword($ldap_conn, $userDN, $password)
+{
+    $pass = array();
+    $pass['userAccountControl'] = 512;
+    $pass['unicodePwd'] = mb_convert_encoding("\"" . $password . "\"", 'utf-16le');
+
+    print "about to password";
+    updatePassword($ldap_conn, $userDN, $pass);
 
 }
 
@@ -112,7 +136,28 @@ function updateObject($ldap_conn, $distinguishedName, $properties)
     bind_to_server($ldap_conn, APP_LDAP_USER, APP_LDAP_PASS);
 
     ldap_modify($ldap_conn, $distinguishedName, $properties);
-    //print_r($props);
+    print_r($properties);
+
+
+    if (ldap_error($ldap_conn) == "Success") {
+        return 0;
+    } else {
+        return ldap_error($ldap_conn);
+    }
+}
+
+/**
+ * Used to modify properties of an AD DN.
+ * @param resource $ldap_conn The LDAP connection resource to connect to AD
+ * @param string $distinguishedName The DN of the object we want to modify
+ * @param array $properties The array of properties we want to set/update
+ * @return int|string Return 0 if everything went according to plan, otherwise return the error code.
+ */
+function updatePassword($ldap_conn, $distinguishedName, $properties)
+{
+    bind_to_server($ldap_conn, APP_LDAP_USER, APP_LDAP_PASS);
+
+    ldap_mod_replace($ldap_conn, $distinguishedName, $properties);
 
     if (ldap_error($ldap_conn) == "Success") {
         return 0;
@@ -194,7 +239,10 @@ function getGroupDNsFromSAM($ldap_conn, $baseOU, $groupList)
  */
 function bind_to_server($ldapConnection, $ldapUser, $ldapPass)
 {
-    $ldapBind = @ldap_bind($ldapConnection, $ldapUser, $ldapPass);
+    ldap_set_option($ldapConnection, LDAP_OPT_PROTOCOL_VERSION, 3);
+    ldap_set_option($ldapConnection, LDAP_OPT_REFERRALS, 0);
+    ldap_set_option($ldapConnection, LDAP_OPT_DEBUG_LEVEL, 7);
+    $ldapBind = ldap_bind($ldapConnection, $ldapUser, $ldapPass);
 
     return $ldapBind;
 
@@ -208,7 +256,7 @@ function bind_to_server($ldapConnection, $ldapUser, $ldapPass)
 function getLdapConnection()
 {
     if (isServerAvailable(APP_LDAP_SERVER, APP_LDAP_PORT)) {
-        return ldap_connect(APP_LDAP_SERVER, APP_LDAP_PORT);
+        return ldap_connect("ldaps://" . APP_LDAP_SERVER, APP_LDAP_PORT);
     } else {
         return false;
     }

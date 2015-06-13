@@ -40,6 +40,13 @@ $(document).ready(function () {
 
     });
 
+    //hide set pass field since we want random passwords
+    $('#rand_pass').change(function () {
+        $('#set_pass_label').toggle();
+        $('#set_pass').toggle().val('');
+
+    });
+
 
 
     $(".go_back_link").on('click', function (e) {

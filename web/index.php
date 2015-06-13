@@ -36,6 +36,9 @@ if (does_post_var_exist("first_name") && does_post_var_exist("last_name")) {
     $firstNames = is_field_blank("first_name") ? null : get_post_var("first_name");
     $lastNames = is_field_blank("last_name") ? null : get_post_var("last_name");
     $usernames = is_field_blank("username") ? null : get_post_var("username");
+    $rand_pass = is_field_blank("rand_pass") ? null : get_post_var("rand_pass");
+    $set_pass = is_field_blank("set_pass") ? null : get_post_var("set_pass");
+
 
     $baseOU = is_field_blank("base_ou") ? null : get_post_var("base_ou");
 
@@ -50,24 +53,37 @@ if (does_post_var_exist("first_name") && does_post_var_exist("last_name")) {
 
     //if any of these fields are null we need to give an error
     if ($firstNames == null || $lastNames == null || $usernames == null || $baseOU == null | $groupList == null ||
-        ($sendEmail && $emailText == null)
+        ($sendEmail && $emailText == null) || (!$rand_pass && !$set_pass)
     ) {
 
         print_error("Please enter all required field data and try again.");
 
 
     } else {
+
+
         //sweet call back method to both trim whitepace around each element and dump their trimmed version into array
         $groupList = array_map('trim', explode(',', $groupList));
+
         $ldap_connection = getLdapConnection();
         foreach ($firstNames as $firstNameKey => $firstNameValue) {
-            createUser($ldap_connection, $baseOU, $usernames[$firstNameKey], $firstNameValue, $lastNames[$firstNameKey], $groupList);
+            $password = null;
+            if ($rand_pass) {
+                $password = generatePassword(RAND_PASSWORD_LENGTH, RAND_PASSWORD_SPECIAL_CHARS);
+            } else {
+                $password = $set_pass;
+            }
+            $userDN = createUser($ldap_connection, $baseOU, $usernames[$firstNameKey], $firstNameValue, $lastNames[$firstNameKey], $password, $groupList);
+
+            print "Created user: " . $usernames[$firstNameKey] . " with password of: " . $password . "<br />";
         }
 
-        print "We made it!";
+        print "<h3>Please record this password information, it won't be retrievable once you leave this page!</h3>";
+
+        print "<a href=\"index.php\">Return Home</a>";
+
 
     }
-
 
 
 } else {

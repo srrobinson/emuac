@@ -25,6 +25,16 @@
                 <input id="base_ou" type="text" name="base_ou" class="input_field_large"/>
             </p>
 
+            <p>
+                <label for="rand_pass" id="rand_pass_label">Generate Random password for each user: </label>
+                <input id="rand_pass" type="checkbox" name="rand_pass" class="input_field_large" checked/>
+            </p>
+
+            <p>
+                <label for="set_pass" id="set_pass_label" class="hidden">Password for each user: </label>
+                <input id="set_pass" type="text" name="set_pass" class="hidden input_field_large"/>
+            </p>
+
 
             <p>
                 <label for="group_list" id="group_list_label">Groups to add user(s) to (comma
