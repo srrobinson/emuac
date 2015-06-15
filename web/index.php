@@ -61,7 +61,12 @@ if (does_post_var_exist("first_name") && does_post_var_exist("last_name")) {
 
     } else {
 
+        $emailDomain = APP_ROOT_DOMAIN;
 
+        //if a custom domain wasn't sent, assume the AD domain is the email domain
+        if (SMTP_DOMAIN != null) {
+            $emailDomain = SMTP_DOMAIN;
+        }
         //sweet call back method to both trim whitepace around each element and dump their trimmed version into array
         $groupList = array_map('trim', explode(',', $groupList));
 
@@ -73,14 +78,17 @@ if (does_post_var_exist("first_name") && does_post_var_exist("last_name")) {
             } else {
                 $password = $set_pass;
             }
-            $userDN = createUser($ldap_connection, $baseOU, $usernames[$userKey], $firstNameValue, $lastNames[$userKey], $password, $groupList);
+
+            $userEmail = getEmail($firstNameValue, $lastNames[$userKey], $emailDomain);
+            $userDN = createUser($ldap_connection, $baseOU, $usernames[$userKey], $userEmail, $firstNameValue, $lastNames[$userKey], $password, $groupList);
 
             if ($userDN) {
                 print "<br />Created user: " . $usernames[$userKey] . " with password of: " . $password . "<br /><br />";
 
                 if ($sendEmail) {
+
                     $templateData = array("{firstname}" => $firstNameValue, "{lastname}" => $lastNames[$userKey], "{username}" => $usernames[$userKey], "{password}" => $password);
-                    $mailer = prepareEmail(getEmail($firstNameValue, $lastNames[$userKey], APP_ROOT_DOMAIN), SMTP_FROM, SMTP_SUBJECT, $emailText, $templateData);
+                    $mailer = prepareEmail($userEmail, SMTP_FROM, SMTP_SUBJECT, $emailText, $templateData);
 
                     //don't overload the mail server
                     sleep(1);

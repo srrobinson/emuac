@@ -31,13 +31,14 @@ require_once('constants.php');
  * @param resource $ldap_conn LDAP connection to pass down to createObject
  * @param string $baseOU The base OU you want to drop the user object in.
  * @param string $username The users sAMAccountName
+ * @param string $email The email address for that user
  * @param string $firstName The users first name
  * @param string $lastName The users last name
  * @param string $password The password we want to set for the user (secure LDAP required)
  * @param array $groups An array containing a list of group DNs you want them to be a member of.
  * @return int Return 0 if everything went according to plan, otherwise return the error code.
  */
-function createUser($ldap_conn, $baseOU, $username, $firstName, $lastName, $password, $groups)
+function createUser($ldap_conn, $baseOU, $username, $email, $firstName, $lastName, $password, $groups)
 {
 
 
@@ -45,6 +46,7 @@ function createUser($ldap_conn, $baseOU, $username, $firstName, $lastName, $pass
     $userDN = "CN=" . $fullName . "," . $baseOU;
 
     $properties = array();
+
 
     $properties['cn'] = $fullName;
     $properties['givenName'] = $firstName;
@@ -57,7 +59,7 @@ function createUser($ldap_conn, $baseOU, $username, $firstName, $lastName, $pass
     $properties['objectclass'][1] = 'person';
     $properties['objectclass'][2] = 'organizationalPerson';
     $properties['objectclass'][3] = 'user';
-    $properties['mail'] = getEmail($firstName, $lastName, APP_ROOT_DOMAIN);
+    $properties['mail'] = $email;
     $properties['unicodePwd'] = getUnicodePwd($password);
     $properties['userAccountControl'] = 512;
 

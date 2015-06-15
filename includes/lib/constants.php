@@ -31,7 +31,7 @@ const APP_LDAP_ROOT = "DC=server,DC=local";
 const APP_LDAP_SERVER = "adserver.server.local";
 const APP_LDAP_PORT = "636";
 const APP_LDAP_USER = "server\\Administrator";
-const APP_LDAP_PASS = "Start123@";
+const APP_LDAP_PASS = "Start123";
 
 
 #String constants
@@ -51,3 +51,5 @@ const SMTP_PASS = "somepassword";
 const SMTP_PORT = 25;
 const SMTP_FROM = "admin@server.local";
 const SMTP_SUBJECT = "Your account has been created!";
+//set this if your email domain is different from the ldap one.
+const SMTP_DOMAIN = null;
